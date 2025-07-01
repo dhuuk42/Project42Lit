@@ -10,7 +10,9 @@ from db import (
     init_challenge_table,
     log_challenge_completion,
     has_completed_challenge,
-    get_challenge_status_all_users
+    get_challenge_status_all_users,
+    delete_weight_entry,
+    get_weights_for_user
 )
 import random
 
@@ -142,3 +144,26 @@ else:
             st.info("Keine Daten für die ausgewählten Teilnehmer.")
     else:
         st.info("Noch keine Einträge vorhanden.")
+        # 🗑️ Eigene Gewichtseinträge löschen
+    st.subheader("🗑️ Eigene Einträge löschen")
+
+    my_entries = get_weights_for_user(st.session_state.user_id)
+
+    if my_entries:
+        df = pd.DataFrame(my_entries, columns=["ID", "Datum", "Gewicht"])
+        df["Datum"] = pd.to_datetime(df["Datum"]).dt.date
+        df["Label"] = df["Datum"].astype(str) + " – " + df["Gewicht"].astype(str) + " kg"
+
+        entry_to_delete = st.selectbox(
+            "Eintrag auswählen",
+            options=df["ID"],
+            format_func=lambda x: df[df["ID"] == x]["Label"].values[0]
+        )
+
+        if st.button("Eintrag löschen"):
+            delete_weight_entry(entry_to_delete, st.session_state.user_id)
+            st.success("Eintrag gelöscht!")
+            st.rerun()
+    else:
+        st.info("Du hast noch keine Einträge.")
+
