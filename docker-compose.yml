@@ -7,14 +7,15 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d
-    ports:
-      - "5432:5432"
+    restart: always
+    networks:
+      - internal
 
   app:
     build: .
     env_file: .env
     ports:
-      - "8501:8501"
+      - "80:8500"
     volumes:
       - ./app:/app
     depends_on:
