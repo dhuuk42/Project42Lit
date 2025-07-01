@@ -111,3 +111,22 @@ def get_challenge_status_all_users(challenge_date):
                 ORDER BY u.username
             """, (challenge_date,))
             return cur.fetchall()
+def get_weights_for_user(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id, date, weight
+                FROM weight_entries
+                WHERE user_id = %s
+                ORDER BY date DESC
+            """, (user_id,))
+            return cur.fetchall()
+
+def delete_weight_entry(entry_id, user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""
+                DELETE FROM weight_entries
+                WHERE id = %s AND user_id = %s
+            """, (entry_id, user_id))
+
