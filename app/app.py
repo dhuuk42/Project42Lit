@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 from datetime import date
+import os
+import hmac
+import hashlib
+import base64
 from db import (
     authenticate_user,
     register_user,
@@ -12,15 +16,48 @@ from db import (
     has_completed_challenge,
     get_challenge_status_all_users,
     delete_weight_entry,
-    get_weights_for_user
+    get_weights_for_user,
+    get_username_from_id
 )
+from cookie_manager import get_cookie, set_cookie, delete_cookie
 import random
+
+COOKIE_NAME = "wt_session"
+COOKIE_SECRET = os.getenv("COOKIE_SECRET", "dev-secret")
+
+
+def create_token(user_id: int) -> str:
+    data = str(user_id)
+    sig = hmac.new(COOKIE_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()
+    token = f"{data}:{sig}"
+    return base64.b64encode(token.encode()).decode()
+
+
+def parse_token(token: str):
+    try:
+        decoded = base64.b64decode(token.encode()).decode()
+        data, sig = decoded.split(":")
+        expected = hmac.new(COOKIE_SECRET.encode(), data.encode(), hashlib.sha256).hexdigest()
+        if hmac.compare_digest(sig, expected):
+            return int(data)
+    except Exception:
+        pass
+    return None
 
 st.set_page_config(page_title="Weight Tracker", layout="centered")
 
 # Session-Init
 if "user_id" not in st.session_state:
-    st.session_state.user_id = None
+    cookie_token = get_cookie(COOKIE_NAME)
+    if cookie_token:
+        user_id = parse_token(cookie_token)
+        if user_id:
+            st.session_state.user_id = user_id
+            st.session_state.username = get_username_from_id(user_id) or ""
+        else:
+            st.session_state.user_id = None
+    else:
+        st.session_state.user_id = None
 if "username" not in st.session_state:
     st.session_state.username = ""
 
@@ -46,6 +83,7 @@ if st.session_state.user_id is None:
             if user_id:
                 st.session_state.user_id = user_id
                 st.session_state.username = username
+                set_cookie(COOKIE_NAME, create_token(user_id))
                 st.success(f"Eingeloggt als {username}")
                 st.rerun()
             else:
@@ -65,6 +103,7 @@ else:
     if st.button("Logout"):
         st.session_state.user_id = None
         st.session_state.username = ""
+        delete_cookie(COOKIE_NAME)
         st.rerun()
     # Challenge Tracking vorbereiten
     init_challenge_table()

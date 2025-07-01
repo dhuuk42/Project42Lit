@@ -24,3 +24,6 @@ git clone https://github.com/dhuuk42/Project42Lit.git
 cd Project42Lit
 cp .env.example .env  # passe Variablen bei Bedarf an
 docker compose up --build
+```
+
+Die Datei `.env.example` enthält Beispielwerte für die Datenbank sowie `COOKIE_SECRET` zum Signieren des Login-Cookies.

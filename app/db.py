@@ -130,3 +130,14 @@ def delete_weight_entry(entry_id, user_id):
                 WHERE id = %s AND user_id = %s
             """, (entry_id, user_id))
 
+def get_username_from_id(user_id):
+    """Return username for given id or None."""
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT username FROM users WHERE id = %s",
+                (user_id,),
+            )
+            result = cur.fetchone()
+            return result[0] if result else None
+
