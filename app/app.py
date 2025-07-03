@@ -152,13 +152,14 @@ else:
             min_value=20.0,
             max_value=300.0,
             step=0.1,
-            value=last_weight  # <- Hier nutzen wir den letzten Eintrag
+            value=last_weight
         )
         entry_date = st.date_input("Datum", value=date.today())
+        note = st.text_input("Notiz (optional)")  # <-- NEW
         submitted = st.form_submit_button("Eintragen")
 
         if submitted:
-            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight)
+            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight, note)  # <-- Pass note
             st.success("Gewicht gespeichert!")
 
 
@@ -189,12 +190,14 @@ else:
         # 🗑️ Eigene Gewichtseinträge löschen
     st.subheader("🗑️ Eigene Einträge löschen")
 
+    # When displaying user's own entries
     my_entries = get_weights_for_user(st.session_state.user_id)
 
     if my_entries:
-        df = pd.DataFrame(my_entries, columns=["ID", "Datum", "Gewicht"])
+        df = pd.DataFrame(my_entries, columns=["ID", "Datum", "Gewicht", "Notiz", "Erstellt am"])  # <-- Add columns
         df["Datum"] = pd.to_datetime(df["Datum"]).dt.date
-        df["Label"] = df["Datum"].astype(str) + " – " + df["Gewicht"].astype(str) + " kg"
+        df["Erstellt am"] = pd.to_datetime(df["Erstellt am"])  # Format as needed
+        df["Label"] = df["Datum"].astype(str) + " – " + df["Gewicht"].astype(str) + " kg" + df["Notiz"].fillna("").apply(lambda n: f" ({n})" if n else "")
 
         entry_to_delete = st.selectbox(
             "Eintrag auswählen",

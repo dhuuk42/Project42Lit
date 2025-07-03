@@ -10,7 +10,10 @@ CREATE TABLE IF NOT EXISTS weight_entries (
     id SERIAL PRIMARY KEY,
     user_id INTEGER NOT NULL REFERENCES users(id),
     date DATE NOT NULL,
-    weight REAL NOT NULL
+    weight REAL NOT NULL, -- in kilograms
+    note TEXT, -- optional note for each entry
+    created_at TIMESTAMP DEFAULT NOW(), -- when the entry was added
+    UNIQUE(user_id, date) -- only one entry per user per day
 );
 
 -- Challenge completion log

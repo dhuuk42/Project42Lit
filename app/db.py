@@ -130,3 +130,36 @@ def delete_weight_entry(entry_id, user_id):
                 WHERE id = %s AND user_id = %s
             """, (entry_id, user_id))
 
+def add_weight_entry(conn, user_id, date, weight, note=None):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO weight_entries (user_id, date, weight, note)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (user_id, date) DO UPDATE
+            SET weight = EXCLUDED.weight,
+                note = EXCLUDED.note,
+                created_at = NOW()
+            """,
+            (user_id, date, weight, note)
+        )
+        conn.commit()
+
+def get_weight_entries(conn, user_id, start_date=None, end_date=None):
+    with conn.cursor() as cur:
+        query = """
+            SELECT date, weight, note, created_at
+            FROM weight_entries
+            WHERE user_id = %s
+        """
+        params = [user_id]
+        if start_date:
+            query += " AND date >= %s"
+            params.append(start_date)
+        if end_date:
+            query += " AND date <= %s"
+            params.append(end_date)
+        query += " ORDER BY date DESC"
+        cur.execute(query, params)
+        return cur.fetchall()
+
