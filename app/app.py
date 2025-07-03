@@ -97,6 +97,7 @@ else:
     # 🧠 Marvin der Fitness-Coach
     def get_marvin_challenge():
         challenges = [
+            # Bestehende Challenges
             "Heute: 5 Kniebeugen. Oder wenigstens 3. Oder denk einfach intensiv an Bewegung.",
             "Setz dich 3x bewusst gerade hin. Das zählt als Sport. Behauptet jedenfalls mein Rückenmodul.",
             "Stell dich 20 Sekunden lang auf ein Bein. Marvin'sche Balance-Challenge.",
@@ -111,18 +112,32 @@ else:
             "Versuche 30 Sekunden lang keinen sarkastischen Gedanken zu haben. Das ist die eigentliche Challenge.",
             "Schau 60 Sekunden lang aus dem Fenster und tu... nichts. Willkommen im Marvin-Modus.",
             "Benutze heute keine Ausrede. Außer natürlich: 'Marvin hat gesagt, ich darf.'",
-          ]
 
+            # Neue Nerd-Challenges
+            "Star Wars-Modus: Mach einen Jedi-Ausfallschritt. Oder heb einfach die Hand und tu so, als ob du die Macht benutzt.",
+            "Zähle heute rückwärts von 88. Wenn du bei 1 ankommst, überleg, ob du schnell genug für 1.21 Gigawatt bist.",
+            "How I Met Your Mother sagt: Sag heute 1x 'Challenge accepted' – und tu dann wenigstens irgendwas.",
+            "Sheldon würde sagen: Mach 3 Schritte im Uhrzeigersinn um deinen Platz. Nenn es: Kreis der Motivation.",
+            "Scrubs-Style: Wenn du heute scheiterst, mach es wenigstens mit einem inneren Monolog und epischer Musik.",
+            "Star Wars: Tu so, als würdest du einem Yoda auf der Schulter zuhören. Er wird sagen: 'Bewege dich, du musst!'",
+            "Dr. Cox wäre enttäuscht, wenn du heute *nicht* wenigstens ein Glas Wasser trinkst. Oder alle.",
+            "BTTF-Modus: Geh rückwärts 10 Schritte. Nenn es Zeitreise. Oder Gleichgewichtstraining.",
+            "Heute keine Ausrede, es sei denn, du wurdest vom dunklen Lord der Couch gezwungen.",
+            "Zähl deine Schritte so, als wärst du ein imperialer Marsch-Roboter. Dum Dum Da Da Dum.",
+            "Stell dir vor, du bist Ted. Erzähl jemandem heute eine Geschichte, bei der du dich am Ende bewegst.",
+            "Wie Sheldon: Setz dich heute bewusst auf *nicht* deinen Lieblingsplatz. Überrasch deinen Hintern.",
+            "Mach heute 3 Hampelmänner. Nenn es den 'Bazinga-Booster'.",
+            "Wenn du heute aus Versehen Sport machst – nenn es eine *origin story* wie in einer schlechten Sitcom.",
+        ]
         return random.choice(challenges)
 
     st.divider()
     with st.container():
         st.markdown("### 🤖 Marvin’s Tages-Challenge")
-        st.markdown(f"*{get_marvin_challenge()}*")
-
         if has_completed_challenge(st.session_state.user_id, today):
             st.success("Challenge bereits erledigt! Marvin ist... na ja... weniger unzufrieden.")
         else:
+            st.markdown(f"*{get_marvin_challenge()}*")
             if st.button("✅ Challenge erledigt"):
                 log_challenge_completion(st.session_state.user_id, today)
                 st.success("Challenge gespeichert! Marvin ist leicht weniger deprimiert.")
