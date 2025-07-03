@@ -259,4 +259,37 @@ else:
                         st.success("Passwort erfolgreich geändert.")
                     else:
                         st.error("Fehler beim Ändern des Passworts.")
+    # 🏆 Gewichtverlust-Rankings
+    st.subheader("🏆 Top 3 Gewichtverlust (absolut & relativ)")
+
+    all_data = get_all_weights_for_all_users()
+    if all_data:
+        df_all = pd.DataFrame(all_data, columns=["User", "Date", "Weight"])
+        df_all["Date"] = pd.to_datetime(df_all["Date"])
+        # Find start and latest weight for each user
+        start_weights = df_all.sort_values("Date").groupby("User").first().reset_index()
+        latest_weights = df_all.sort_values("Date").groupby("User").last().reset_index()
+        merged = pd.merge(start_weights[["User", "Weight"]], latest_weights[["User", "Weight"]], on="User", suffixes=("_start", "_latest"))
+        merged["loss_abs"] = merged["Weight_start"] - merged["Weight_latest"]
+        merged["loss_rel"] = merged["loss_abs"] / merged["Weight_start"] * 100
+
+        # Absolute Ranking
+        abs_rank = merged.sort_values("loss_abs", ascending=False).head(3)
+        abs_rank = abs_rank[["User", "Weight_start", "Weight_latest", "loss_abs"]].rename(
+            columns={"Weight_start": "Startgewicht", "Weight_latest": "Aktuell", "loss_abs": "Verlust (kg)"}
+        )
+        abs_rank["Verlust (kg)"] = abs_rank["Verlust (kg)"].round(2)
+        st.markdown("**Absolut (kg):**")
+        st.table(abs_rank.reset_index(drop=True))
+
+        # Relative Ranking
+        rel_rank = merged.sort_values("loss_rel", ascending=False).head(3)
+        rel_rank = rel_rank[["User", "Weight_start", "Weight_latest", "loss_rel"]].rename(
+            columns={"Weight_start": "Startgewicht", "Weight_latest": "Aktuell", "loss_rel": "Verlust (%)"}
+        )
+        rel_rank["Verlust (%)"] = rel_rank["Verlust (%)"].round(2)
+        st.markdown("**Relativ (%):**")
+        st.table(rel_rank.reset_index(drop=True))
+    else:
+        st.info("Noch keine Einträge für Rankings vorhanden.")
 
