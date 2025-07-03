@@ -38,10 +38,14 @@ def authenticate_user(username, password):
                 return result[0]
     return None
 
-def insert_weight(user_id, date, weight):
+def insert_weight(user_id, date, weight, note=None):
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("INSERT INTO weight_entries (user_id, date, weight) VALUES (%s, %s, %s)", (user_id, date, weight))
+            cur.execute(
+                "INSERT INTO weight_entries (user_id, date, weight, note) VALUES (%s, %s, %s, %s) "
+                "ON CONFLICT (user_id, date) DO UPDATE SET weight = EXCLUDED.weight, note = EXCLUDED.note, created_at = NOW()",
+                (user_id, date, weight, note)
+            )
             conn.commit()
 
 def get_all_weights_for_all_users():
@@ -114,12 +118,15 @@ def get_challenge_status_all_users(challenge_date):
 def get_weights_for_user(user_id):
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("""
-                SELECT id, date, weight
+            cur.execute(
+                """
+                SELECT id, date, weight, note, created_at
                 FROM weight_entries
                 WHERE user_id = %s
-                ORDER BY date DESC
-            """, (user_id,))
+                ORDER BY created_at DESC
+                """,
+                (user_id,)
+            )
             return cur.fetchall()
 
 def delete_weight_entry(entry_id, user_id):
@@ -148,7 +155,7 @@ def add_weight_entry(conn, user_id, date, weight, note=None):
 def get_weight_entries(conn, user_id, start_date=None, end_date=None):
     with conn.cursor() as cur:
         query = """
-            SELECT date, weight, note, created_at
+            SELECT id, date, weight, note, created_at
             FROM weight_entries
             WHERE user_id = %s
         """
@@ -159,7 +166,20 @@ def get_weight_entries(conn, user_id, start_date=None, end_date=None):
         if end_date:
             query += " AND date <= %s"
             params.append(end_date)
-        query += " ORDER BY date DESC"
+        query += " ORDER BY created_at DESC"
         cur.execute(query, params)
         return cur.fetchall()
+
+def change_password(user_id, new_password):
+    try:
+        with get_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE users SET password = %s WHERE id = %s",
+                    (hash_password(new_password), user_id)  # <-- hash the new password!
+                )
+                conn.commit()
+        return True
+    except Exception:
+        return False
 
