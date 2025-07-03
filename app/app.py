@@ -134,11 +134,10 @@ else:
     st.divider()
     with st.container():
         st.markdown("### 🤖 Marvin’s Tages-Challenge")
-        st.markdown(f"*{get_marvin_challenge()}*")
-
         if has_completed_challenge(st.session_state.user_id, today):
             st.success("Challenge bereits erledigt! Marvin ist... na ja... weniger unzufrieden.")
         else:
+            st.markdown(f"*{get_marvin_challenge()}*")
             if st.button("✅ Challenge erledigt"):
                 log_challenge_completion(st.session_state.user_id, today)
                 st.success("Challenge gespeichert! Marvin ist leicht weniger deprimiert.")
