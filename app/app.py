@@ -12,7 +12,8 @@ from db import (
     has_completed_challenge,
     get_challenge_status_all_users,
     delete_weight_entry,
-    get_weights_for_user
+    get_weights_for_user,
+    change_password
 )
 import random
 from streamlit_cookies_manager import EncryptedCookieManager
@@ -152,13 +153,14 @@ else:
             min_value=20.0,
             max_value=300.0,
             step=0.1,
-            value=last_weight  # <- Hier nutzen wir den letzten Eintrag
+            value=last_weight
         )
         entry_date = st.date_input("Datum", value=date.today())
+        note = st.text_input("Notiz (optional)")  # <-- NEW
         submitted = st.form_submit_button("Eintragen")
 
         if submitted:
-            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight)
+            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight, note)  # <-- Pass note
             st.success("Gewicht gespeichert!")
 
 
@@ -168,7 +170,7 @@ else:
     all_data = get_all_weights_for_all_users()
     if all_data:
         df_all = pd.DataFrame(all_data, columns=["User", "Date", "Weight"])
-        df_all["Date"] = pd.to_datetime(df_all["Date"])
+        df_all["Date"] = pd.to_datetime(df_all["Date"]).dt.date  # <-- Only show date
 
         # Auswahlmaske für User
         all_users = sorted(df_all["User"].unique())
@@ -189,17 +191,32 @@ else:
         # 🗑️ Eigene Gewichtseinträge löschen
     st.subheader("🗑️ Eigene Einträge löschen")
 
+    # When displaying user's own entries
     my_entries = get_weights_for_user(st.session_state.user_id)
+    df = pd.DataFrame(my_entries, columns=["ID", "Datum", "Gewicht", "Notiz", "Erstellt am"])
 
     if my_entries:
-        df = pd.DataFrame(my_entries, columns=["ID", "Datum", "Gewicht"])
-        df["Datum"] = pd.to_datetime(df["Datum"]).dt.date
-        df["Label"] = df["Datum"].astype(str) + " – " + df["Gewicht"].astype(str) + " kg"
+        # Show timestamp and note in the table
+        df["Erstellt am"] = pd.to_datetime(df["Erstellt am"])
+        df["Label"] = (
+            df["Erstellt am"].dt.strftime("%Y-%m-%d %H:%M") +  # Show timestamp
+            " – " + df["Gewicht"].astype(str) + " kg" +
+            df["Notiz"].fillna("").apply(lambda n: f" ({n})" if n else "")
+        )
 
         entry_to_delete = st.selectbox(
             "Eintrag auswählen",
             options=df["ID"],
             format_func=lambda x: df[df["ID"] == x]["Label"].values[0]
+        )
+
+        # Display all entries with timestamp and note
+        st.dataframe(
+            df[["Erstellt am", "Gewicht", "Notiz"]].sort_values("Erstellt am", ascending=False).rename(
+                columns={"Erstellt am": "Zeitpunkt", "Gewicht": "Gewicht (kg)", "Notiz": "Notiz"}
+            ),
+            hide_index=True,
+            use_container_width=True
         )
 
         if st.button("Eintrag löschen"):
@@ -208,4 +225,23 @@ else:
             st.rerun()
     else:
         st.info("Du hast noch keine Einträge.")
+    # Passwort ändern
+    with st.expander("🔑 Passwort ändern"):
+        with st.form("change_password_form"):
+            old_pw = st.text_input("Altes Passwort", type="password")
+            new_pw = st.text_input("Neues Passwort", type="password")
+            new_pw2 = st.text_input("Neues Passwort wiederholen", type="password")
+            pw_submit = st.form_submit_button("Passwort ändern")
+            if pw_submit:
+                if not authenticate_user(st.session_state.username, old_pw):
+                    st.error("Altes Passwort ist falsch.")
+                elif new_pw != new_pw2:
+                    st.error("Die neuen Passwörter stimmen nicht überein.")
+                elif len(new_pw) < 6:
+                    st.error("Das neue Passwort muss mindestens 6 Zeichen lang sein.")
+                else:
+                    if change_password(st.session_state.user_id, new_pw):
+                        st.success("Passwort erfolgreich geändert.")
+                    else:
+                        st.error("Fehler beim Ändern des Passworts.")
 
