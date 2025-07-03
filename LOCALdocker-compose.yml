@@ -1,0 +1,30 @@
+services:
+  db:
+    image: postgres:16
+    env_file: .env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+    restart: always
+    networks:
+      - internal
+
+  app:
+    build: .
+    env_file: .env
+    ports:
+      - "80:8501"
+    volumes:
+      - ./app:/app
+    depends_on:
+      - db
+    command: streamlit run /app/app.py --server.port=8501
+    networks:
+      - internal
+
+volumes:
+  pgdata:
+
+networks:
+  internal:
+    driver: bridge
