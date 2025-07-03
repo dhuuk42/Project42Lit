@@ -1,0 +1,8 @@
+# PostgreSQL Config
+POSTGRES_DB=project42
+POSTGRES_USER=project42_user
+POSTGRES_PASSWORD=supersecurepassword
+
+# Optional: Hostname/IP der Datenbank (innerhalb des Netzwerks)
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
