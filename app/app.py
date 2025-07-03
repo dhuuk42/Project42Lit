@@ -15,6 +15,15 @@ from db import (
     get_weights_for_user
 )
 import random
+from streamlit_cookies_manager import EncryptedCookieManager
+
+# Initialize cookie manager
+cookies = EncryptedCookieManager(
+    prefix="wt_",  # optional, to avoid conflicts
+    password="super-secret-password"  # use a strong secret in production!
+)
+if not cookies.ready():
+    st.stop()
 
 st.set_page_config(page_title="Weight Tracker", layout="centered")
 
@@ -23,6 +32,11 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "username" not in st.session_state:
     st.session_state.username = ""
+
+# Restore session from cookies if available
+if st.session_state.user_id is None and cookies.get("user_id"):
+    st.session_state.user_id = int(cookies.get("user_id"))
+    st.session_state.username = cookies.get("username")
 
 # Testnutzer einmalig registrieren
 try:
@@ -39,43 +53,45 @@ if st.session_state.user_id is None:
     tab1, tab2 = st.tabs(["Login", "Registrieren"])
 
     with tab1:
-        username = st.text_input("Benutzername")
-        password = st.text_input("Passwort", type="password")
-        if st.button("Login"):
-            user_id = authenticate_user(username, password)
-            if user_id:
-                st.session_state.user_id = user_id
-                st.session_state.username = username
-                st.success(f"Eingeloggt als {username}")
-                st.rerun()
-            else:
-                st.error("Ungültige Zugangsdaten.")
+        with st.form("login_form"):
+            username = st.text_input("Benutzername")
+            password = st.text_input("Passwort", type="password")
+            login_submitted = st.form_submit_button("Login")
+            if login_submitted:
+                user_id = authenticate_user(username, password)
+                if user_id:
+                    st.session_state.user_id = user_id
+                    st.session_state.username = username
+                    cookies["user_id"] = str(user_id)
+                    cookies["username"] = username
+                    st.success(f"Eingeloggt als {username}")
+                    st.rerun()
+                else:
+                    st.error("Ungültige Zugangsdaten.")
 
     with tab2:
-        new_username = st.text_input("Neuer Benutzername")
-        new_password = st.text_input("Neues Passwort", type="password")
-        if st.button("Registrieren"):
-            if register_user(new_username, new_password):
-                st.success("Benutzer registriert. Bitte einloggen.")
-            else:
-                st.error("Benutzername existiert bereits.")
+        with st.form("register_form"):
+            new_username = st.text_input("Neuer Benutzername")
+            new_password = st.text_input("Neues Passwort", type="password")
+            register_submitted = st.form_submit_button("Registrieren")
+            if register_submitted:
+                if register_user(new_username, new_password):
+                    st.success("Benutzer registriert. Bitte einloggen.")
+                else:
+                    st.error("Benutzername existiert bereits.")
 
 else:
     st.success(f"Eingeloggt als {st.session_state.username}")
     if st.button("Logout"):
         st.session_state.user_id = None
         st.session_state.username = ""
+        cookies["user_id"] = ""
+        cookies["username"] = ""
         st.rerun()
     # Challenge Tracking vorbereiten
     init_challenge_table()
     today = date.today()
     
-    # Challenge Übersicht
-    st.subheader("👀 Challenge-Erfüllung heute")
-    status_list = get_challenge_status_all_users(today)
-    status_df = pd.DataFrame(status_list, columns=["User", "Erledigt"])
-    status_df["Erledigt"] = status_df["Erledigt"].map({True: "✅", False: "❌"})
-    st.table(status_df)
 
     # 🧠 Marvin der Fitness-Coach
     def get_marvin_challenge():
@@ -111,15 +127,41 @@ else:
                 st.success("Challenge gespeichert! Marvin ist leicht weniger deprimiert.")
                 st.rerun()
 
+    # Challenge Übersicht
+    st.subheader("👀 Challenge-Erfüllung heute")
+    status_list = get_challenge_status_all_users(today)
+    status_df = pd.DataFrame(status_list, columns=["User", "Erledigt"])
+    status_df["Erledigt"] = status_df["Erledigt"].map({True: "✅", False: "❌"})
+    st.table(status_df)
 
-    # Gewicht eintragen
+
+
+    # Hole die bisherigen Einträge des Users
+    weight_entries = get_weights_for_user(st.session_state.user_id)
+
+    # Ermittle den letzten Eintrag, falls vorhanden
+    if weight_entries:
+        # Annahme: Liste ist sortiert nach Datum (falls nicht, bitte sortieren)
+        last_weight = weight_entries[-1][2]  # Index 2 corresponds to the weight
+    else:
+        last_weight = 70.0  # Fallback-Wert, z. B. Mittelwert oder Standard
+
     with st.form("weight_form"):
-        weight = st.number_input("Dein Gewicht (kg)", min_value=20.0, max_value=300.0, step=0.1)
+        weight = st.number_input(
+            "Dein Gewicht (kg)",
+            min_value=20.0,
+            max_value=300.0,
+            step=0.1,
+            value=last_weight  # <- Hier nutzen wir den letzten Eintrag
+        )
         entry_date = st.date_input("Datum", value=date.today())
         submitted = st.form_submit_button("Eintragen")
+
         if submitted:
             insert_weight(st.session_state.user_id, entry_date.isoformat(), weight)
             st.success("Gewicht gespeichert!")
+
+
 
     # Öffentlicher Verlauf
     st.subheader("📊 Gewichtsentwicklung aller Teilnehmer")
