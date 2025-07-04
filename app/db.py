@@ -32,7 +32,7 @@ def register_user(username, password):
 def authenticate_user(username, password):
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id, password FROM users WHERE username = %s", (username,))
+            cur.execute("SELECT id, password, username FROM users WHERE LOWER(username) = LOWER(%s)", (username,))
             result = cur.fetchone()
             if result and result[1] == hash_password(password):
                 return result[0]
@@ -62,7 +62,7 @@ def get_all_weights_for_all_users():
 def user_exists(username):
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM users WHERE username = %s", (username,))
+            cur.execute("SELECT 1 FROM users WHERE LOWER(username) = LOWER(%s)", (username,))
             return cur.fetchone() is not None
 
 def register_test_users():
