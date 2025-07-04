@@ -13,11 +13,15 @@ from db import (
     get_challenge_status_all_users,
     delete_weight_entry,
     get_weights_for_user,
-    change_password
+    change_password,
+    get_user_color, 
+    set_user_color, 
+    get_all_user_colors 
 )
 import random
 from streamlit_cookies_manager import EncryptedCookieManager
 import altair as alt
+import re
 
 # Initialize cookie manager
 cookies = EncryptedCookieManager(
@@ -181,6 +185,19 @@ else:
 
 
 
+    # --- User Color Picker (Collapsible) ---
+    with st.expander("🎨 Farbe für deinen Verlauf wählen"):
+        current_color = get_user_color(st.session_state.user_id) or "#004b9c"
+        color_input = st.color_picker("Wähle deine Farbe für den Verlauf", value=current_color)
+        # Validate hex code (must be #RRGGBB)
+        hex_pattern = re.compile(r"^#([A-Fa-f0-9]{6})$")
+        if st.button("Farbe speichern"):
+            if hex_pattern.match(color_input):
+                set_user_color(st.session_state.user_id, color_input)
+                st.success("Farbe gespeichert! Aktualisiere die Seite, um die Änderung zu sehen.")
+            else:
+                st.error("Bitte gib einen gültigen Hex-Code ein (z.B. #1a2b3c).")
+
     # Öffentlicher Verlauf
     st.subheader("📊 Gewichtsentwicklung aller Teilnehmer")
     all_data = get_all_weights_for_all_users()
@@ -188,19 +205,40 @@ else:
         df_all = pd.DataFrame(all_data, columns=["User", "Date", "Weight"])
         df_all["Date"] = pd.to_datetime(df_all["Date"]).dt.date
 
-        # Auswahlmaske für User
+        # Get all user colors for the chart
+        user_colors = get_all_user_colors()
         all_users = sorted(df_all["User"].unique())
         selected_users = st.multiselect("Teilnehmer auswählen", options=all_users, default=all_users)
 
         # --- Date Range Filter ---
         min_date = df_all["Date"].min()
         max_date = df_all["Date"].max()
-        col1, col2 = st.columns(2)
+
+        # Quick filter buttons
+        col1, col2, col3, col4 = st.columns(4)
         with col1:
-            filter_start = st.date_input("Von", value=min_date, min_value=min_date, max_value=max_date)
+            quick_all = st.button("Gesamter Zeitraum")
         with col2:
-            filter_end = st.date_input("Bis", value=max_date, min_value=min_date, max_value=max_date)
-        # -------------------------
+            quick_month = st.button("Letzter Monat")
+        with col3:
+            quick_week = st.button("Letzte 7 Tage")
+
+        # Default filter values
+        filter_start = min_date
+        filter_end = max_date
+
+        # Apply quick filters
+        if quick_month:
+            filter_start = max(min_date, max_date - pd.Timedelta(days=30))
+        elif quick_week:
+            filter_start = max(min_date, max_date - pd.Timedelta(days=6))
+
+        # Manual date selection (overrides quick filters if changed)
+        col5, col6 = st.columns(2)
+        with col5:
+            filter_start = st.date_input("Von", value=filter_start, min_value=min_date, max_value=max_date, key="filter_start")
+        with col6:
+            filter_end = st.date_input("Bis", value=filter_end, min_value=min_date, max_value=max_date, key="filter_end")
 
         # Gefilterte Daten
         filtered_df = df_all[
@@ -216,23 +254,14 @@ else:
             pivot = pivot.reindex(all_dates)  # fill missing dates
             interpolated = pivot.interpolate(method="linear", limit_direction="both")
 
-            # --- Fixed colors for users ---
+            # --- Colors for users ---
             user_list = list(pivot.columns)
-            # Define your fixed colors here (hex or color names)
-            fixed_colors = {
-                "alice": "#e41a1c",
-                "Mirco": "#b2ac88",
-                "Matthias": "#004b9c"
-                # add more if you want
-            }
-            # Assign random colors for users not in fixed_colors
             def get_random_color():
                 return "#{:06x}".format(random.randint(0, 0xFFFFFF))
-            color_map = {user: fixed_colors.get(user, get_random_color()) for user in user_list}
-            # Ensure consistent order
+            color_map = {user: user_colors.get(user) or get_random_color() for user in user_list}
             domain = user_list
             color_range = [color_map[user] for user in user_list]
-            # ------------------------------
+            # ------------------------
 
             real_points = pivot.reset_index().melt(id_vars="index", var_name="User", value_name="Weight")
             real_points = real_points.dropna()
@@ -242,7 +271,7 @@ else:
                 .mark_line()
                 .encode(
                     x="index:T",
-                    y="Weight:Q",
+                    y=alt.Y("Weight:Q", scale=alt.Scale(domain=[70, 130])),
                     color=alt.Color("User:N", scale=alt.Scale(domain=domain, range=color_range))
                 )
                 +
@@ -250,7 +279,7 @@ else:
                 .mark_point(filled=True, size=60)
                 .encode(
                     x="Date:T",
-                    y="Weight:Q",
+                    y=alt.Y("Weight:Q", scale=alt.Scale(domain=[70, 130])),
                     color=alt.Color("User:N", scale=alt.Scale(domain=domain, range=color_range))
                 )
             )
