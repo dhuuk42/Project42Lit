@@ -288,7 +288,15 @@ else:
             st.info("Keine Daten für die ausgewählten Teilnehmer.")
     else:
         st.info("Noch keine Einträge vorhanden.")
-        # 🗑️ Eigene Gewichtseinträge löschen
+        filtered_df = pd.DataFrame(columns=["User", "Date", "Weight"])  # <--- HINZUGEFÜGT
+
+    # Öffentlicher Verlauf Tabelle (if you display it)
+    # If you show a table for all users' weights, round there as well:
+    if not filtered_df.empty:
+        display_df = filtered_df.copy()
+        display_df["Weight"] = display_df["Weight"].round(1)
+        st.dataframe(display_df, hide_index=True, use_container_width=True)
+    # 🗑️ Eigene Gewichtseinträge löschen
     st.subheader("🗑️ Eigene Einträge löschen")
 
     # When displaying user's own entries
