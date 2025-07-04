@@ -17,6 +17,14 @@ Diese App trackt euer Gewicht, zeigt Fortschritte, verteilt Challenges – und w
 
 ---
 
+## Example .env File
+
+POSTGRES_DB=project42
+POSTGRES_USER=project42_user
+POSTGRES_PASSWORD=supersecurepassword
+POSTGRES_HOST=db
+POSTGRES_PORT=5432
+
 ## 📦 Setup (Docker)
 
 ```bash
@@ -24,3 +32,4 @@ git clone https://github.com/dhuuk42/Project42Lit.git
 cd Project42Lit
 cp .env.example .env  # passe Variablen bei Bedarf an
 docker compose up --build
+
