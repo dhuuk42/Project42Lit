@@ -183,3 +183,22 @@ def change_password(user_id, new_password):
     except Exception:
         return False
 
+def get_user_color(user_id):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT color FROM users WHERE id = %s", (user_id,))
+            result = cur.fetchone()
+            return result[0] if result else None
+
+def set_user_color(user_id, color):
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE users SET color = %s WHERE id = %s", (color, user_id))
+            conn.commit()
+
+def get_all_user_colors():
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT username, color FROM users")
+            return dict(cur.fetchall())
+
