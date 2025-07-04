@@ -17,6 +17,7 @@ from db import (
 )
 import random
 from streamlit_cookies_manager import EncryptedCookieManager
+import altair as alt
 
 # Initialize cookie manager
 cookies = EncryptedCookieManager(
@@ -185,20 +186,75 @@ else:
     all_data = get_all_weights_for_all_users()
     if all_data:
         df_all = pd.DataFrame(all_data, columns=["User", "Date", "Weight"])
-        df_all["Date"] = pd.to_datetime(df_all["Date"]).dt.date  # <-- Only show date
+        df_all["Date"] = pd.to_datetime(df_all["Date"]).dt.date
 
         # Auswahlmaske für User
         all_users = sorted(df_all["User"].unique())
         selected_users = st.multiselect("Teilnehmer auswählen", options=all_users, default=all_users)
 
+        # --- Date Range Filter ---
+        min_date = df_all["Date"].min()
+        max_date = df_all["Date"].max()
+        col1, col2 = st.columns(2)
+        with col1:
+            filter_start = st.date_input("Von", value=min_date, min_value=min_date, max_value=max_date)
+        with col2:
+            filter_end = st.date_input("Bis", value=max_date, min_value=min_date, max_value=max_date)
+        # -------------------------
+
         # Gefilterte Daten
-        filtered_df = df_all[df_all["User"].isin(selected_users)]
+        filtered_df = df_all[
+            (df_all["User"].isin(selected_users)) &
+            (df_all["Date"] >= filter_start) &
+            (df_all["Date"] <= filter_end)
+        ]
 
-        # Anzeige
-        st.dataframe(filtered_df.sort_values(["Date", "User"], ascending=[False, True]))
-
+        # Interpolation: create a complete date range
         if not filtered_df.empty:
-            st.line_chart(filtered_df.pivot(index="Date", columns="User", values="Weight"))
+            all_dates = pd.date_range(filtered_df["Date"].min(), filtered_df["Date"].max())
+            pivot = filtered_df.pivot(index="Date", columns="User", values="Weight")
+            pivot = pivot.reindex(all_dates)  # fill missing dates
+            interpolated = pivot.interpolate(method="linear", limit_direction="both")
+
+            # --- Fixed colors for users ---
+            user_list = list(pivot.columns)
+            # Define your fixed colors here (hex or color names)
+            fixed_colors = {
+                "alice": "#e41a1c",
+                "Mirco": "#b2ac88",
+                "Matthias": "#004b9c"
+                # add more if you want
+            }
+            # Assign random colors for users not in fixed_colors
+            def get_random_color():
+                return "#{:06x}".format(random.randint(0, 0xFFFFFF))
+            color_map = {user: fixed_colors.get(user, get_random_color()) for user in user_list}
+            # Ensure consistent order
+            domain = user_list
+            color_range = [color_map[user] for user in user_list]
+            # ------------------------------
+
+            real_points = pivot.reset_index().melt(id_vars="index", var_name="User", value_name="Weight")
+            real_points = real_points.dropna()
+            real_points = real_points.rename(columns={"index": "Date"})
+            chart = (
+                alt.Chart(interpolated.reset_index().melt(id_vars="index", var_name="User", value_name="Weight"))
+                .mark_line()
+                .encode(
+                    x="index:T",
+                    y="Weight:Q",
+                    color=alt.Color("User:N", scale=alt.Scale(domain=domain, range=color_range))
+                )
+                +
+                alt.Chart(real_points)
+                .mark_point(filled=True, size=60)
+                .encode(
+                    x="Date:T",
+                    y="Weight:Q",
+                    color=alt.Color("User:N", scale=alt.Scale(domain=domain, range=color_range))
+                )
+            )
+            st.altair_chart(chart, use_container_width=True)
         else:
             st.info("Keine Daten für die ausgewählten Teilnehmer.")
     else:
@@ -225,11 +281,12 @@ else:
             format_func=lambda x: df[df["ID"] == x]["Label"].values[0]
         )
 
-        # Display all entries with timestamp and note
+        # Display all entries with timestamp and note (user's own entries)
         st.dataframe(
-            df[["Erstellt am", "Gewicht", "Notiz"]].sort_values("Erstellt am", ascending=False).rename(
-                columns={"Erstellt am": "Zeitpunkt", "Gewicht": "Gewicht (kg)", "Notiz": "Notiz"}
-            ),
+            df[["Erstellt am", "Gewicht", "Notiz"]]
+            .sort_values("Erstellt am", ascending=False)
+            .rename(columns={"Erstellt am": "Zeitpunkt", "Gewicht": "Gewicht (kg)", "Notiz": "Notiz"})
+            .assign(**{"Gewicht (kg)": lambda x: x["Gewicht (kg)"].round(1)}),  # round to 1 decimal
             hide_index=True,
             use_container_width=True
         )
@@ -269,16 +326,30 @@ else:
         # Find start and latest weight for each user
         start_weights = df_all.sort_values("Date").groupby("User").first().reset_index()
         latest_weights = df_all.sort_values("Date").groupby("User").last().reset_index()
-        merged = pd.merge(start_weights[["User", "Weight"]], latest_weights[["User", "Weight"]], on="User", suffixes=("_start", "_latest"))
+        merged = pd.merge(
+            start_weights[["User", "Weight"]],
+            latest_weights[["User", "Weight"]],
+            on="User",
+            suffixes=("_start", "_latest")
+        )
         merged["loss_abs"] = merged["Weight_start"] - merged["Weight_latest"]
         merged["loss_rel"] = merged["loss_abs"] / merged["Weight_start"] * 100
+
+        # Round all weights and losses to 1 decimal
+        merged["Weight_start"] = merged["Weight_start"].round(1)
+        merged["Weight_latest"] = merged["Weight_latest"].round(1)
+        merged["loss_abs"] = merged["loss_abs"].round(1)
+        merged["loss_rel"] = merged["loss_rel"].round(1)
 
         # Absolute Ranking
         abs_rank = merged.sort_values("loss_abs", ascending=False).head(3)
         abs_rank = abs_rank[["User", "Weight_start", "Weight_latest", "loss_abs"]].rename(
             columns={"Weight_start": "Startgewicht", "Weight_latest": "Aktuell", "loss_abs": "Verlust (kg)"}
         )
-        abs_rank["Verlust (kg)"] = abs_rank["Verlust (kg)"].round(2)
+        # Format to one decimal as string
+        abs_rank["Startgewicht"] = abs_rank["Startgewicht"].map("{:.1f}".format)
+        abs_rank["Aktuell"] = abs_rank["Aktuell"].map("{:.1f}".format)
+        abs_rank["Verlust (kg)"] = abs_rank["Verlust (kg)"].map("{:.1f}".format)
         st.markdown("**Absolut (kg):**")
         st.table(abs_rank.reset_index(drop=True))
 
@@ -287,9 +358,18 @@ else:
         rel_rank = rel_rank[["User", "Weight_start", "Weight_latest", "loss_rel"]].rename(
             columns={"Weight_start": "Startgewicht", "Weight_latest": "Aktuell", "loss_rel": "Verlust (%)"}
         )
-        rel_rank["Verlust (%)"] = rel_rank["Verlust (%)"].round(2)
+        rel_rank["Startgewicht"] = rel_rank["Startgewicht"].map("{:.1f}".format)
+        rel_rank["Aktuell"] = rel_rank["Aktuell"].map("{:.1f}".format)
+        rel_rank["Verlust (%)"] = rel_rank["Verlust (%)"].map("{:.1f}".format)
         st.markdown("**Relativ (%):**")
         st.table(rel_rank.reset_index(drop=True))
     else:
         st.info("Noch keine Einträge für Rankings vorhanden.")
+
+    # Öffentlicher Verlauf Tabelle (if you display it)
+    # If you show a table for all users' weights, round there as well:
+    if not filtered_df.empty:
+        display_df = filtered_df.copy()
+        display_df["Weight"] = display_df["Weight"].round(1)
+        st.dataframe(display_df, hide_index=True, use_container_width=True)
 
