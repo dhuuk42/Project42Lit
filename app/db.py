@@ -123,7 +123,7 @@ def get_weights_for_user(user_id):
                 SELECT id, date, weight, note, created_at
                 FROM weight_entries
                 WHERE user_id = %s
-                ORDER BY created_at DESC
+                ORDER BY date DESC
                 """,
                 (user_id,)
             )

@@ -25,6 +25,7 @@ def load_recipes():
     return recipes
 
 st.title("🍲 Rezeptdatenbank")
+st.divider()
 recipes = load_recipes()
 all_tags = sorted({tag for recipe in recipes for tag in recipe["tags"]})
 
