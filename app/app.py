@@ -32,9 +32,10 @@ if not cookies.ready():
     st.stop()
 
 st.set_page_config(
-    page_title="64 Bit Nerds against the Galaxy",
+    page_title="Project42 - Tracker",  # This will be the sidebar/main page name
+    page_icon="🏠",
     layout="centered",
-    initial_sidebar_state="collapsed"  # Sidebar standardmäßig eingeklappt
+    initial_sidebar_state="collapsed"
 )
 
 # Session-Init
