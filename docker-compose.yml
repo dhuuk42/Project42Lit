@@ -18,7 +18,7 @@ services:
       - ./app:/app
     depends_on:
       - db
-    command: streamlit run /app/app.py --server.port=8501
+    command: streamlit run /app/Weighttracker.py --server.port=8501
     networks:
       - internal
 
