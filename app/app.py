@@ -23,6 +23,13 @@ from streamlit_cookies_manager import EncryptedCookieManager
 import altair as alt
 import re
 
+st.set_page_config(
+    page_title="Project42 - Tracker",  # This will be the sidebar/main page name
+    page_icon="🏠",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
 # Initialize cookie manager
 cookies = EncryptedCookieManager(
     prefix="wt_",  # optional, to avoid conflicts
@@ -30,8 +37,6 @@ cookies = EncryptedCookieManager(
 )
 if not cookies.ready():
     st.stop()
-
-st.set_page_config(page_title="Weight Tracker", layout="centered")
 
 # Session-Init
 if "user_id" not in st.session_state:
