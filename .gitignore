@@ -7,5 +7,6 @@ __pycache__/
 *.zip
 pgdata/
 data/
+backups/
 __init__.py
 pytest_cache/
