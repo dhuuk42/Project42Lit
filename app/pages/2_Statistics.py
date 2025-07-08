@@ -55,7 +55,9 @@ try:
 except Exception as e:
     st.warning(f"Fehler beim Anlegen von Testusern: {e}")
 
-st.title("🏋️ Project42 – Weight Tracker")
+st.title("📊 Gewichtsentwicklung")
+st.markdown("_Aller Teilnehmer im Vergleich_")
+st.divider()
 
 # Login/Registrierung
 if st.session_state.user_id is None:
@@ -92,37 +94,6 @@ if st.session_state.user_id is None:
                     st.error("Benutzername existiert bereits.")
 
 else:
-    st.text(f"Hallo {st.session_state.username}, schön dass Du da bist.")
-    st.divider()
-    st.subheader("⚖️ Gewicht erfassen")
-    # Hole die bisherigen Einträge des Users
-    weight_entries = get_weights_for_user(st.session_state.user_id)
-
-    # Ermittle den letzten Eintrag, falls vorhanden
-    if weight_entries:
-        last_weight = weight_entries[-1][2]  # Index 2 corresponds to the weight
-    else:
-        last_weight = 70.0  # Fallback-Wert, z. B. Mittelwert oder Standard
-
-    with st.form("weight_form"):
-        weight = st.number_input(
-            "Dein Gewicht (kg)",
-            min_value=20.0,
-            max_value=300.0,
-            step=0.1,
-            value=last_weight
-        )
-        entry_date = st.date_input("Datum", value=date.today())
-        note = st.text_input("Notiz (optional)")  # <-- NEW
-        submitted = st.form_submit_button("Eintragen")
-
-        if submitted:
-            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight, note)  # <-- Pass note
-            st.success("Gewicht gespeichert!")
-    st.divider()
-    st.subheader("📊 Gewichtsentwicklung")
-    st.markdown("_Aller Teilnehmer im Vergleich_")
-
     # Hole die bisherigen Einträge des Users
     weight_entries = get_weights_for_user(st.session_state.user_id)
 
@@ -217,9 +188,60 @@ else:
         st.info("Noch keine Einträge vorhanden.")
         filtered_df = pd.DataFrame(columns=["User", "Date", "Weight"])  # <--- HINZUGEFÜGT
 
+    st.divider()
+    # 🏆 Gewichtverlust-Rankings
+    st.subheader("🏆 Top 3 Gewichtverlust (absolut & relativ)")
+
+    all_data = get_all_weights_for_all_users()
+    if all_data:
+        df_all = pd.DataFrame(all_data, columns=["User", "Date", "Weight"])
+        df_all["Date"] = pd.to_datetime(df_all["Date"])
+        # Find start and latest weight for each user
+        start_weights = df_all.sort_values("Date").groupby("User").first().reset_index()
+        latest_weights = df_all.sort_values("Date").groupby("User").last().reset_index()
+        merged = pd.merge(
+            start_weights[["User", "Weight"]],
+            latest_weights[["User", "Weight"]],
+            on="User",
+            suffixes=("_start", "_latest")
+        )
+        merged["loss_abs"] = merged["Weight_start"] - merged["Weight_latest"]
+        merged["loss_rel"] = merged["loss_abs"] / merged["Weight_start"] * 100
+
+        # Round all weights and losses to 1 decimal
+        merged["Weight_start"] = merged["Weight_start"].round(1)
+        merged["Weight_latest"] = merged["Weight_latest"].round(1)
+        merged["loss_abs"] = merged["loss_abs"].round(1)
+        merged["loss_rel"] = merged["loss_rel"].round(1)
+
+        # Absolute Ranking
+        abs_rank = merged.sort_values("loss_abs", ascending=False).head(3)
+        abs_rank = abs_rank[["User", "Weight_start", "Weight_latest", "loss_abs"]].rename(
+            columns={"Weight_start": "Startgewicht", "Weight_latest": "Aktuell", "loss_abs": "Verlust (kg)"}
+        )
+        # Format to one decimal as string
+        abs_rank["Startgewicht"] = abs_rank["Startgewicht"].map("{:.1f}".format)
+        abs_rank["Aktuell"] = abs_rank["Aktuell"].map("{:.1f}".format)
+        abs_rank["Verlust (kg)"] = abs_rank["Verlust (kg)"].map("{:.1f}".format)
+        st.markdown("**Absolut (kg):**")
+        st.table(abs_rank.reset_index(drop=True))
+
+        # Relative Ranking
+        rel_rank = merged.sort_values("loss_rel", ascending=False).head(3)
+        rel_rank = rel_rank[["User", "Weight_start", "Weight_latest", "loss_rel"]].rename(
+            columns={"Weight_start": "Startgewicht", "Weight_latest": "Aktuell", "loss_rel": "Verlust (%)"}
+        )
+        rel_rank["Startgewicht"] = rel_rank["Startgewicht"].map("{:.1f}".format)
+        rel_rank["Aktuell"] = rel_rank["Aktuell"].map("{:.1f}".format)
+        rel_rank["Verlust (%)"] = rel_rank["Verlust (%)"].map("{:.1f}".format)
+        st.markdown("**Relativ (%):**")
+        st.table(rel_rank.reset_index(drop=True))
+    else:
+        st.info("Noch keine Einträge für Rankings vorhanden.")
+
     if st.button("Logout"):
-        st.session_state.user_id = None
-        st.session_state.username = ""
-        cookies["user_id"] = ""
-        cookies["username"] = ""
-        st.rerun()
+       st.session_state.user_id = None
+       st.session_state.username = ""
+       cookies["user_id"] = ""
+       cookies["username"] = ""
+       st.rerun()
