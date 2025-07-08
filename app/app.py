@@ -31,7 +31,11 @@ cookies = EncryptedCookieManager(
 if not cookies.ready():
     st.stop()
 
-st.set_page_config(page_title="Weight Tracker", layout="centered")
+st.set_page_config(
+    page_title="64 Bit Nerds against the Galaxy",
+    layout="centered",
+    initial_sidebar_state="collapsed"  # Sidebar standardmäßig eingeklappt
+)
 
 # Session-Init
 if "user_id" not in st.session_state:
