@@ -98,11 +98,12 @@ else:
     # Hole die bisherigen Einträge des Users
     weight_entries = get_weights_for_user(st.session_state.user_id)
 
-    # Ermittle den letzten Eintrag, falls vorhanden
+    if "weight_input" not in st.session_state:
+    weight_entries = get_weights_for_user(st.session_state.user_id)
     if weight_entries:
-        last_weight = weight_entries[-1][2]  # Index 2 corresponds to the weight
+        st.session_state.weight_input = weight_entries[-1][2]
     else:
-        last_weight = 70.0  # Fallback-Wert, z. B. Mittelwert oder Standard
+        st.session_state.weight_input = 70.0  # Fallback
 
     with st.form("weight_form"):
         weight = st.number_input(
@@ -110,18 +111,18 @@ else:
             min_value=20.0,
             max_value=300.0,
             step=0.1,
-            value=last_weight
+            key="weight_input"  # Nutze Session State key
         )
         entry_date = st.date_input("Datum", value=date.today())
-        note = st.text_input("Notiz (optional)")  # <-- NEW
+        note = st.text_input("Notiz (optional)")
         submitted = st.form_submit_button("Eintragen")
 
         if submitted:
-            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight, note)  # <-- Pass note
+            insert_weight(st.session_state.user_id, entry_date.isoformat(), weight, note)
             st.success("Gewicht gespeichert!")
-    st.divider()
-    st.subheader("📊 Gewichtsentwicklung")
-    st.markdown("_Aller Teilnehmer im Vergleich_")
+            # Optional: nach dem Eintragen neuen default setzen
+            st.session_state.weight_input = weight
+
 
     # Hole die bisherigen Einträge des Users
     weight_entries = get_weights_for_user(st.session_state.user_id)
